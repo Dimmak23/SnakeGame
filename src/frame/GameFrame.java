@@ -15,6 +15,7 @@ import javax.swing.*;
 
 public class GameFrame extends JFrame {
 	public GameFrame() {
+
 		this.add(new GamePanel());
 		this.setTitle("Snake Game by DimmaK, 18 march 2023, all rights reserved.");
 		this.setDefaultCloseOperation(JFrame.EXIT_ON_CLOSE);
@@ -22,5 +23,11 @@ public class GameFrame extends JFrame {
 		this.pack();
 		this.setVisible(true);
 		this.setLocationRelativeTo(null);
+
+		ImageIcon applicationIcon = new ImageIcon("assets/icons/appIcon.png");
+//		ImageIcon applicationIcon = new ImageIcon(
+//				Objects.requireNonNull(getClass().getClassLoader().getResource(
+//						"assets/icons/appIcon.png")));
+		this.setIconImage(applicationIcon.getImage());
 	}
 }
