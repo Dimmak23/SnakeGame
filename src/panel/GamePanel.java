@@ -1,11 +1,14 @@
 package panel;
 
+import javax.sound.sampled.*;
 import javax.swing.*;
 import java.awt.*;
 import java.awt.event.ActionEvent;
 import java.awt.event.ActionListener;
 import java.awt.event.KeyAdapter;
 import java.awt.event.KeyEvent;
+import java.io.File;
+import java.io.IOException;
 import java.util.AbstractMap;
 import java.util.Map;
 import java.util.Random;
@@ -41,13 +44,21 @@ public class GamePanel extends JPanel implements ActionListener {
 	public void actionPerformed(ActionEvent event) {
 		if (running) {
 			move();
-			checkApple();
-			checkCollisions();
+			try {
+				checkApple();
+			} catch (IOException | LineUnavailableException | UnsupportedAudioFileException e) {
+				throw new RuntimeException(e);
+			}
+			try {
+				checkCollisions();
+			} catch (LineUnavailableException | IOException e) {
+				throw new RuntimeException(e);
+			}
 		}
 		repaint();
 	}
 
-	public GamePanel() {
+	public GamePanel() throws UnsupportedAudioFileException, IOException, LineUnavailableException {
 		//
 		random = new Random();
 		this.setPreferredSize(new Dimension(
@@ -59,13 +70,33 @@ public class GamePanel extends JPanel implements ActionListener {
 		this.addKeyListener(new SnakeKeyAdapter());
 
 //		startGame();
+		// Prepare sounds
+		themePlayer = AudioSystem.getClip();
+		greetInputStream = AudioSystem.getAudioInputStream(new File("assets/sounds/greet.wav"));
+		themeInputStream = AudioSystem.getAudioInputStream(new File("assets/sounds/theme.wav"));
+		gameOverInputStream = AudioSystem.getAudioInputStream(new File("assets/sounds/game_over.wav"));
+
+		themePlayer.open(greetInputStream);
+		themePlayer.setFramePosition(0);
+		themePlayer.start();
 	}
 
-	public void startGame() {
+	public void startGame() throws LineUnavailableException, IOException, InterruptedException {
 //		this.running = true;
 		newApple();
 		timer = new Timer(_DELAY_, this);
 		timer.start();
+
+		themePlayer.stop();
+		themePlayer.close();
+
+		themePlayer.open(themeInputStream);
+		themePlayer.setFramePosition(0);
+		themePlayer.loop(Clip.LOOP_CONTINUOUSLY);
+		FloatControl gainControl =
+				(FloatControl) themePlayer.getControl(FloatControl.Type.MASTER_GAIN);
+		gainControl.setValue(-20.0f); // Reduce volume by 20 decibels.
+		themePlayer.start();
 	}
 
 	public void newApple() {
@@ -79,7 +110,7 @@ public class GamePanel extends JPanel implements ActionListener {
 	}
 
 	public void move() {
-		for (int part = bodyParts; part > 0; part--) {
+		for (int part = bodyParts-1; part > 0; part--) {
 			snakeX[part] = snakeX[part - 1];
 			snakeY[part] = snakeY[part - 1];
 		}
@@ -102,18 +133,49 @@ public class GamePanel extends JPanel implements ActionListener {
 		}
 	}
 
-	public void checkApple() {
+	public void checkApple() throws LineUnavailableException, IOException, UnsupportedAudioFileException {
 		if ((snakeX[0] == appleX) && (snakeY[0] == appleY)) {
-			if (bodyParts < _QTY_.get("units")) bodyParts++;
+			if (bodyParts < _QTY_.get("units")) {
+
+				AudioInputStream catchInputStream = AudioSystem.getAudioInputStream(
+						new File("assets/sounds/catch.wav"));
+				Clip clip = AudioSystem.getClip();
+				// Play catch sound
+				clip.open(catchInputStream);
+				clip.setFramePosition(0);
+				clip.start();
+
+				bodyParts++;
+				switch (direction) {
+					case 'U':
+						snakeY[bodyParts-1] = snakeY[bodyParts-2] + _UNIT_.get("size");
+						snakeX[bodyParts-1] = snakeX[bodyParts-2];
+						break;
+					case 'D':
+						snakeY[bodyParts-1] = snakeY[bodyParts-2] - _UNIT_.get("size");
+						snakeX[bodyParts-1] = snakeX[bodyParts-2];
+						break;
+					case 'L':
+						snakeY[bodyParts-1] = snakeY[bodyParts-2];
+						snakeX[bodyParts-1] = snakeX[bodyParts-2] + _UNIT_.get("size");
+						break;
+					case 'R':
+						snakeY[bodyParts-1] = snakeY[bodyParts-2];
+						snakeX[bodyParts-1] = snakeX[bodyParts-2] - _UNIT_.get("size");
+						break;
+					default:
+						System.out.println("Unpredicted error");
+				}
+			}
 			appleEaten++;
 			newApple();
 		}
 	}
 
-	public void checkCollisions() {
+	public void checkCollisions() throws LineUnavailableException, IOException {
 
 		// Collision snake head with the body
-		for (int part = bodyParts; part > 0; part--) {
+		for (int part = bodyParts-1; part > 0; part--) {
 			if ((snakeX[0] == snakeX[part]) && (snakeY[0] == snakeY[part])) {
 				running = false;
 				gameOver = true;
@@ -133,13 +195,31 @@ public class GamePanel extends JPanel implements ActionListener {
 		}
 
 		//
-		if (!running) timer.stop();
+		if (!running) {
+			timer.stop();
+
+			themePlayer.stop();
+			themePlayer.close();
+
+			themePlayer.open(gameOverInputStream);
+			themePlayer.setFramePosition(0);
+			FloatControl gainControl =
+					(FloatControl) themePlayer.getControl(FloatControl.Type.MASTER_GAIN);
+			gainControl.setValue(-20.0f); // Reduce volume by 20 decibels.
+			themePlayer.start();
+		}
 	}
 
 	public void draw(Graphics drawing) {
-		if (!running && !gameOver) welcomePageRender(drawing);
-		else if (running) gamePlayRender(drawing);
-		else gameOverRender(drawing);
+		if (!running && !gameOver){
+			welcomePageRender(drawing);
+		}
+		else if (running){
+			gamePlayRender(drawing);
+		}
+		else{
+			gameOverRender(drawing);
+		}
 	}
 
 	public void welcomePageRender(Graphics drawing) {
@@ -288,7 +368,11 @@ public class GamePanel extends JPanel implements ActionListener {
 				case KeyEvent.VK_ENTER:
 					if (!running && !gameOver) {
 						running = true;
-						startGame();
+						try {
+							startGame();
+						} catch (LineUnavailableException | IOException | InterruptedException e) {
+							throw new RuntimeException(e);
+						}
 					}
 					break;
 				case KeyEvent.VK_LEFT:
@@ -332,7 +416,7 @@ public class GamePanel extends JPanel implements ActionListener {
 					_FIELD_.get("width") * _FIELD_.get("height") / _UNIT_.get("size") * _UNIT_.get("size"))
 	);
 
-	static final int _DELAY_ = 80;
+	static final int _DELAY_ = 110;
 
 	int[] snakeX = new int[_FIELD_.get("width") / _UNIT_.get("size")];
 	int[] snakeY = new int[_FIELD_.get("height") / _UNIT_.get("size")];
@@ -347,4 +431,10 @@ public class GamePanel extends JPanel implements ActionListener {
 	boolean gameOver = false;
 	Timer timer;
 	Random random;
+
+	// SOUNDS
+	AudioInputStream greetInputStream;
+	AudioInputStream themeInputStream;
+	AudioInputStream gameOverInputStream;
+	Clip themePlayer;
 }

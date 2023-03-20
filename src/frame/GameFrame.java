@@ -2,7 +2,10 @@ package frame;
 
 import panel.GamePanel;
 
+import javax.sound.sampled.LineUnavailableException;
+import javax.sound.sampled.UnsupportedAudioFileException;
 import javax.swing.*;
+import java.io.IOException;
 
 /**
  * The JFrame class is slightly incompatible with Frame.
@@ -14,7 +17,7 @@ import javax.swing.*;
  */
 
 public class GameFrame extends JFrame {
-	public GameFrame() {
+	public GameFrame() throws UnsupportedAudioFileException, IOException, LineUnavailableException {
 
 		this.add(new GamePanel());
 		this.setTitle("Snake Game by DimmaK, 18 march 2023, all rights reserved.");
