@@ -416,7 +416,7 @@ public class GamePanel extends JPanel implements ActionListener {
 					_FIELD_.get("width") * _FIELD_.get("height") / _UNIT_.get("size") * _UNIT_.get("size"))
 	);
 
-	static final int _DELAY_ = 110;
+	static final int _DELAY_ = 80;
 
 	int[] snakeX = new int[_FIELD_.get("width") / _UNIT_.get("size")];
 	int[] snakeY = new int[_FIELD_.get("height") / _UNIT_.get("size")];
